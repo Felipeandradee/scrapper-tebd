@@ -53,42 +53,55 @@ def congress():
 
 def paper():
     url = 'http://ieeexplore.ieee.org/rest/search'
-    page = 0
+    page = 31501
     n_paper = 0
     print(f'Started populate paper at: {datetime.datetime.now()}')
+
+    print("Request search page for get cookies.")
+    response = requests.get('http://ieeexplore.ieee.org/search/searchresult.jsp')
+    cookies = response.cookies
     while True:
-        page += 1
-        print(f'Request page {page}')
-        payload = {
-            'pageNumber': str(page),
-        }
-        headers = {
-            'Accept': 'application/json, text/plain, */*',
-            'Content-Type': 'application/json;charset=UTF-8',
-            'Content-Length': '18',
-            'Accept-Language': 'en-US,en;q=0.8,pt;q=0.6',
-            'Referer': 'http://ieeexplore.ieee.org/search/searchresult.jsp',
-            'Origin': 'http://ieeexplore.ieee.org',
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) '
-                          'Chrome/60.0.3112.113 Safari/537.36',
+        try:
+            page += 1
+            print(f'Request page {page}')
+            payload = {
+                'pageNumber': str(page),
+            }
+            headers = {
+                'Accept': 'application/json, text/plain, */*',
+                'Content-Type': 'application/json;charset=UTF-8',
+                'Content-Length': '18',
+                'Accept-Language': 'en-US,en;q=0.8,pt;q=0.6',
+                'Referer': 'http://ieeexplore.ieee.org/search/searchresult.jsp',
+                'Origin': 'http://ieeexplore.ieee.org',
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) '
+                              'Chrome/60.0.3112.113 Safari/537.36',
 
-        }
-        response = requests.get('http://ieeexplore.ieee.org/search/searchresult.jsp')
-        cookies = response.cookies
+            }
 
-        response = requests.post(url, json=payload, headers=headers, cookies=cookies)
-        papers = json.loads(response.text)['records']
-        if (page % 10) == 0:
-            db.commit()
-            print(f'committed : {page}')
-            print(f'insert {n_paper} rows')
-        if len(papers) <= 0:
-            db.commit()
-            print(f'{datetime.datetime.now()}- Finished, populated with {n_paper} papers')
-            break
+            response = requests.post(url, json=payload, headers=headers, cookies=cookies, timeout=15)
 
-        for p in papers:
+            papers = json.loads(response.text)['records']
+            if (page % 150) == 0:
+                db.commit()
+                print(f'committed at: {page}')
+                print(f'insert {n_paper} rows')
+                print("Request search page for get cookies.")
+                response = requests.get('http://ieeexplore.ieee.org/search/searchresult.jsp')
+                cookies = response.cookies
+            if len(papers) <= 0:
+                db.commit()
+                print(f'{datetime.datetime.now()}- Finished, populated with {n_paper} papers')
+                break
 
-            Paper.get_or_create(title=p['title'], abstract=p.get('abstract', ''),
-                                finalScore=0., accepted=True)
-            n_paper += 1
+            for p in papers:
+
+                if p.get('title'):
+                    Paper.create(title=p['title'], abstract=p.get('abstract', ''),
+                                        finalScore=0., accepted=True)
+                    n_paper += 1
+
+        except Exception as e:
+            print(f'{datetime.datetime.now()} - Error: {e} \nretry in 30 seconds')
+            time.sleep(30)
+            continue

@@ -12,6 +12,7 @@ with db.atomic() as transaction:
     try:
         populate.congress()
         populate.paper()
+        populate.update_paper()
 
     except Exception as e:
         db.rollback()

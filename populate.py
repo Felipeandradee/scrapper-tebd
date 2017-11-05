@@ -5,7 +5,7 @@ import re
 import requests
 import time
 
-from models import Congress, Paper, db
+from models import Congress, Paper, db, Review
 
 
 def create_tables():
@@ -105,3 +105,26 @@ def paper():
             print(f'{datetime.datetime.now()} - Error: {e} \nretry in 30 seconds')
             time.sleep(30)
             continue
+
+
+def update_paper():
+    all_papers = Paper.select()
+    counter = 0
+    for p in all_papers:
+        counter += 1
+        reviews = Review.select().where(Review.idPaper == p.paperId)
+        num_reviews = len(reviews)
+        sum_score = sum([r.score for r in reviews])
+        avg_score = int(sum_score / num_reviews)
+        p.finalScore = int(sum_score/num_reviews)
+        if num_reviews < 3 or avg_score < 7:
+            p.accepted = False
+        p.save()
+
+        if (counter % 10000) == 0:
+            print(f"{counter} papers updated")
+
+
+
+
+
